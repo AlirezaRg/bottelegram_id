@@ -1,0 +1,2 @@
+﻿web: gunicorn core.wsgi --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+bot: python -m bot.main
