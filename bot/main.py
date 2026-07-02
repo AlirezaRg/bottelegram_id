@@ -1,45 +1,21 @@
+"""
+Local development entry point ONLY — runs the bot in polling mode.
+
+In production (Render), the bot does NOT run this file. Instead, Telegram
+delivers updates via webhook straight to the Django web service
+(see api/telegram_webhook.py), so there's no separate always-on process
+needed — which is what makes the free tier possible.
+"""
+
 import asyncio
 import logging
 
-from aiogram import Bot, Dispatcher
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
-from aiogram.fsm.storage.memory import MemoryStorage
-
-from . import config
-from .handlers import start, verification, reports, ads
+from .dispatcher import bot, dp
 
 logging.basicConfig(level=logging.INFO)
 
 
-def _build_bot() -> Bot:
-    default = DefaultBotProperties(parse_mode=ParseMode.HTML)
-
-    if config.TELEGRAM_PROXY:
-        # Routes all Telegram API calls through a local proxy — needed when
-        # api.telegram.org isn't directly reachable (e.g. from Iran without
-        # a system-wide VPN). Requires: pip install aiohttp-socks (for socks5://)
-        from aiogram.client.session.aiohttp import AiohttpSession
-
-        session = AiohttpSession(proxy=config.TELEGRAM_PROXY)
-        return Bot(token=config.BOT_TOKEN, default=default, session=session)
-
-    return Bot(token=config.BOT_TOKEN, default=default)
-
-
 async def main():
-    bot = _build_bot()
-
-    # MemoryStorage is fine for development. For production with multiple
-    # workers or restarts that shouldn't lose in-progress conversations,
-    # switch to RedisStorage (aiogram.fsm.storage.redis).
-    dp = Dispatcher(storage=MemoryStorage())
-
-    dp.include_router(start.router)
-    dp.include_router(verification.router)
-    dp.include_router(reports.router)
-    dp.include_router(ads.router)
-
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 

@@ -42,6 +42,14 @@ TELEGRAM_BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 # Zarinpal merchant id — get one at https://next.zarinpal.com (sandbox available for testing).
 ZARINPAL_MERCHANT_ID = os.environ.get("ZARINPAL_MERCHANT_ID", "")
 
+# Secret path segment for the Telegram webhook URL (see api/telegram_webhook.py).
+# Generate one with: python -c "import secrets; print(secrets.token_urlsafe(32))"
+TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
+
+# The public URL this service is reachable at (e.g. https://trustbot.onrender.com).
+# Used by create_webhook.py to tell Telegram where to send updates.
+PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "")
+
 
 # Application definition
 
@@ -62,6 +70,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -104,6 +113,27 @@ DATABASES = {
     }
 }
 
+# Railway automatically injects DATABASE_URL for PostgreSQL add-ons.
+# This overrides the per-field config above when present.
+DATABASE_URL = os.environ.get('DATABASE_URL', '')
+if DATABASE_URL:
+    import urllib.parse as _urlparse
+    _url = _urlparse.urlparse(DATABASE_URL)
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': _url.path[1:],
+        'USER': _url.username,
+        'PASSWORD': _url.password,
+        'HOST': _url.hostname,
+        'PORT': _url.port or 5432,
+    }
+
+# Railway gives each deployment a unique domain — trust it for CSRF.
+# Add your own domain here when you set up a custom domain.
+CSRF_TRUSTED_ORIGINS = [
+    o.strip() for o in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if o.strip()
+]
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -141,6 +171,7 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -149,3 +180,11 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 25,
 }
+
+# Production security — automatically enabled when DEBUG=False (i.e. on Railway)
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
