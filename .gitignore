@@ -1,0 +1,13 @@
+@'
+.env
+__pycache__/
+*.pyc
+staticfiles/
+db.sqlite3
+media/
+venv/
+.venv/
+env/
+.vscode/
+.idea/
+'@ | Out-File -FilePath "D:\trustbot\.gitignore" -Encoding UTF8

@@ -1,0 +1,8 @@
+Django>=5.0,<6.1
+djangorestframework>=3.15
+python-dotenv>=1.0
+aiogram>=3.4
+aiohttp>=3.9
+psycopg2-binary>=2.9   # for PostgreSQL in production; remove if staying on sqlite
+requests>=2.31
+aiohttp-socks>=0.8   # only needed if using TELEGRAM_PROXY with socks5://
