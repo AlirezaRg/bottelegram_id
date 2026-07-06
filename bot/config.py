@@ -4,7 +4,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-API_BASE_URL = os.environ.get("API_BASE_URL", "http://127.0.0.1:8000/api/v1")
+
+# In webhook mode the bot handlers run inside the Django process and call back
+# into the same app's REST API over HTTP. The old default (:8000) is wrong on
+# Render, where the app listens on $PORT — so fall back to the deployment's own
+# public URL (RENDER_EXTERNAL_URL, injected automatically) when API_BASE_URL
+# isn't set explicitly. Locally this still defaults to the dev server.
+_render_url = os.environ.get("RENDER_EXTERNAL_URL", "")
+_default_api_base = f"{_render_url.rstrip('/')}/api/v1" if _render_url else "http://127.0.0.1:8000/api/v1"
+API_BASE_URL = os.environ.get("API_BASE_URL", _default_api_base)
 BOT_API_KEY = os.environ.get("BOT_API_KEY")
 PUBLIC_LINK_BASE = os.environ.get("PUBLIC_LINK_BASE", "https://yourdomain.com/p")
 

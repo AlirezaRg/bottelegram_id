@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: free
     buildCommand: "pip install -r requirements.txt && python manage.py collectstatic --no-input"
-    startCommand: "python manage.py migrate --no-input && gunicorn core.asgi:application -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT"
+    startCommand: "python manage.py migrate --no-input && (python create_webhook.py || echo 'webhook registration skipped — check BOT_TOKEN / TELEGRAM_WEBHOOK_SECRET env vars') && gunicorn core.asgi:application -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT"
     envVars:
       - key: DJANGO_DEBUG
         value: "False"

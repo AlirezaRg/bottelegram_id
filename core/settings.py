@@ -30,6 +30,12 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "True") == "True"
 
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()]
 
+# Render injects the deployment's public hostname automatically — trust it so
+# the app works out of the box without hand-editing DJANGO_ALLOWED_HOSTS.
+RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "")
+if RENDER_EXTERNAL_HOSTNAME and RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+
 # Shared secret the Telegram bot service uses to call this API.
 # Generate a strong random value for production, e.g.: python -c "import secrets; print(secrets.token_hex(32))"
 BOT_API_KEY = os.environ.get("BOT_API_KEY", "CHANGE-ME-BOT-API-KEY")
@@ -47,8 +53,9 @@ ZARINPAL_MERCHANT_ID = os.environ.get("ZARINPAL_MERCHANT_ID", "")
 TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
 
 # The public URL this service is reachable at (e.g. https://trustbot.onrender.com).
-# Used by create_webhook.py to tell Telegram where to send updates.
-PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "")
+# Used by create_webhook.py to tell Telegram where to send updates. On Render
+# this is injected automatically (RENDER_EXTERNAL_URL), so no manual setup needed.
+PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "") or os.environ.get("RENDER_EXTERNAL_URL", "")
 
 
 # Application definition
@@ -128,11 +135,13 @@ if DATABASE_URL:
         'PORT': _url.port or 5432,
     }
 
-# Railway gives each deployment a unique domain — trust it for CSRF.
+# Railway/Render give each deployment a unique domain — trust it for CSRF.
 # Add your own domain here when you set up a custom domain.
 CSRF_TRUSTED_ORIGINS = [
     o.strip() for o in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if o.strip()
 ]
+if PUBLIC_BASE_URL and PUBLIC_BASE_URL not in CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS.append(PUBLIC_BASE_URL)
 
 
 # Password validation
@@ -181,8 +190,15 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 25,
 }
 
-# Production security — automatically enabled when DEBUG=False (i.e. on Railway)
+# Production security — automatically enabled when DEBUG=False (i.e. on Railway/Render)
 if not DEBUG:
+    # Render/Railway terminate TLS at their load balancer and forward the
+    # request internally over plain HTTP with X-Forwarded-Proto: https. Without
+    # this, Django thinks every request is insecure and, combined with
+    # SECURE_SSL_REDIRECT below, issues an endless 301 redirect loop — which
+    # silently breaks the Telegram webhook (it never gets a 200). Trusting the
+    # forwarded header fixes that.
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
